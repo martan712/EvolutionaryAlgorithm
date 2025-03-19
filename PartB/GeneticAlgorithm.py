@@ -1,8 +1,11 @@
 import random
 import numpy as np
 
+def generate_random_string(alphabet, length):
+    return ''.join(random.choice(alphabet) for _ in range(length))
+    
 class GeneticAlgorithm:
-    def __init__(self, alphabet, target, target_length, mu, N=200, K=5, iters=1000):
+    def __init__(self, alphabet, target, target_length, mu, N=200, K=5, iters=200):
         self.alphabet = alphabet
         self.target = target
         self.target_length = target_length
@@ -10,10 +13,7 @@ class GeneticAlgorithm:
         self.N = N  # Population size
         self.K = K  # Tournament selection size
         self.iters = iters  # Max iterations
-        self.population = [self.generate_random_string() for _ in range(N)]
-
-    def generate_random_string(self):
-        return ''.join(random.choice(self.alphabet) for _ in range(self.target_length))
+        self.population = [generate_random_string(self.alphabet, self.target_length) for _ in range(N)]
 
     def fitness(self, individual):
         return sum(1 for t, i in zip(self.target, individual) if t == i) / self.target_length
@@ -47,10 +47,13 @@ class GeneticAlgorithm:
         self.population = new_population[:self.N]  # Keep population size fixed
 
     def run(self):
+        fitness_tracker = []
         fitnesses = [self.fitness(c) for c in self.population]
         best_fitness = max(fitnesses)
         generation = 0
         while best_fitness != 1:
+            if generation>= self.iters:
+                break
             if generation%10 == 0:
                 print(generation)
                 print(best_fitness)
@@ -58,6 +61,7 @@ class GeneticAlgorithm:
             self.create_new_population()
             fitnesses = [self.fitness(c) for c in self.population]
             best_fitness = max(fitnesses)
-            
+            fitness_tracker.append(best_fitness)
         print(f"Final Generation: {generation}")
         print(f"Best Fitness: {best_fitness:.4f}")
+        return fitness_tracker, [self.fitness(c) for c in self.population]
