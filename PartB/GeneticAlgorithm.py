@@ -61,9 +61,18 @@ class GeneticAlgorithm:
         fitnesses = [self.fitness(c) for c in self.population.get_population()]
         best_fitness = max(fitnesses)
         generation = 0
+        
+        filename=f"ex-{self.experiment_name}-mu{ str(Fraction(self.mu).limit_denominator()).replace('/', 'div')}-K{self.K}-N{self.N}/{self.experiment_id}"
+        
         while best_fitness != 1:
             if generation>= self.iters:
                 break
+        
+            if generation%10==0:
+                dist_to_csv(Counter(self.population.min_hamming_distances()).items(), 
+                            f"data/csv/hamming/{filename}-gen{generation}.csv")
+                dist_to_csv(enumerate(self.population.positionwise_entropy()), 
+                            f"data/csv/entropy/{filename}-gen{generation}.csv")
             # if generation%25 == 0:
             #     print(generation)
             #     print(best_fitness)
@@ -75,11 +84,12 @@ class GeneticAlgorithm:
         print(f"Final Generation: {generation}")
         print(f"Best Fitness: {best_fitness:.4f}")
         
-        filename=f"ex-{self.experiment_name}-mu{ str(Fraction(self.mu).limit_denominator()).replace('/', 'div')}-K{self.K}-N{self.N}.{self.experiment_id}"
         self.population.generate_fasta("data/fasta/"+filename+".fasta")
         visualize_png("data/fasta/"+filename+".fasta", "title","figures/logo/"+filename+".png")
-        dist_to_csv(Counter(self.population.min_hamming_distances()), "data/csv/"+filename+".csv")
-        
+        dist_to_csv(Counter(self.population.min_hamming_distances()).items(), 
+                    f"data/csv/hamming/{filename}-gen{generation}.csv")
+        dist_to_csv(enumerate(self.population.positionwise_entropy()), 
+                    f"data/csv/entropy/{filename}-gen{generation}.csv")
         self.experiment_id+=1
         
         return fitness_tracker, [self.fitness(c) for c in self.population.get_population()]
