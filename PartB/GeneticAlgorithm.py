@@ -96,5 +96,5 @@ class GeneticAlgorithm:
         self.population.generate_fasta(filename)
         self.visualize_png(filename, "title","output_image.png")
         print(self.population.min_hamming_distances())
-
+        print(self.population.get_population())
         return fitness_tracker, [self.fitness(c) for c in self.population.get_population()]

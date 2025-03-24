@@ -1,7 +1,7 @@
 from weblogo import *
 
 def hamming_distance(s1, s2):
-    return sum(x != y for x, y in zip(s1, s2))
+    return sum(x != y for x, y in zip(s1.strip(), s2.strip()))
    
 class Population:
     
