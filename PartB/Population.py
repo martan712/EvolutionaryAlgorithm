@@ -1,7 +1,5 @@
 from weblogo import *
-
-def hamming_distance(s1, s2):
-    return sum(x != y for x, y in zip(s1.strip(), s2.strip()))
+from Utilities import *
    
 class Population:
     
@@ -15,8 +13,11 @@ class Population:
         return self.population 
             
     def min_hamming_distances(self):
-        return [min([hamming_distance(x, y) for y in self.population if x!=y]) for x in self.population]
-        
+        try:
+            return [min([hamming_distance(x, y) for y in self.population if x!=y]) for x in self.population]
+        except: 
+            # ugly fix for non-mutation
+            return 0
     def generate_fasta(self,filename):
         with open(filename, "w") as f:
             for i, seq in enumerate(self.population):

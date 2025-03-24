@@ -1,14 +1,16 @@
 import random
 import numpy as np
-from weblogo import *
-from Population import *
 from fractions import Fraction
+from collections import Counter
+
+from Population import *
+from Utilities import *
 
 def generate_random_string(alphabet, length):
     return ''.join(random.choice(alphabet) for _ in range(length))
     
 class GeneticAlgorithm:
-    def __init__(self, alphabet, target, target_length, mu, N=200, K=5, iters=200):
+    def __init__(self, alphabet, target, target_length, mu, N=200, K=5, iters=200, experiment_name=""):
         self.alphabet = alphabet
         self.target = target
         self.target_length = target_length
@@ -16,8 +18,13 @@ class GeneticAlgorithm:
         self.N = N  # Population size
         self.K = K  # Tournament selection size
         self.iters = iters  # Max iterations
-        self.population = Population([generate_random_string(self.alphabet, self.target_length) for _ in range(N)])
-
+        self.population = Population([generate_random_string(self.alphabet, self.target_length) for _ in range(self.N)])
+        self.experiment_name = experiment_name
+        self.experiment_id = 0
+        
+    def reset_population(self):
+        self.population = Population([generate_random_string(self.alphabet, self.target_length) for _ in range(self.N)])
+        
     def fitness(self, individual):
         return sum(1 for t, i in zip(self.target, individual) if t == i) / self.target_length
 
@@ -48,32 +55,7 @@ class GeneticAlgorithm:
             c1, c2 = self.mutate(c1), self.mutate(c2)
             new_population.extend([c1, c2])
         self.population.set_population(new_population[:self.N])  # Keep population size fixed
-
-    def visualize_png(self, inname, title, outname):
-        fin = open(inname)
-        sequences = read_seq_data(fin)
-        logodata = LogoData.from_seqs(sequences)
-        
-        # Create the logo options
-        logooptions = LogoOptions()
-        logooptions.title = title
-        
-        # Increase the DPI (Resolution) for better quality
-        logooptions.dpi = 300  # Default is usually 72 DPI, 300 is better quality
-        
-        # Optionally, adjust font sizes, scale, or other settings:
-        logooptions.font_size = 40  # Adjust font size (default is usually around 12)
-        logooptions.size = (24, 8)  # Adjust size of the logo, if necessary
-        
-        # Format the logo
-        logoformat = LogoFormat(logodata, logooptions)
-        png = png_formatter(logodata, logoformat)
-        
-        # Save the image at the high resolution
-        with open(outname, 'wb') as file:
-            file.write(png)
-    
-            
+         
     def run(self):
         fitness_tracker = []
         fitnesses = [self.fitness(c) for c in self.population.get_population()]
@@ -82,9 +64,9 @@ class GeneticAlgorithm:
         while best_fitness != 1:
             if generation>= self.iters:
                 break
-            if generation%25 == 0:
-                print(generation)
-                print(best_fitness)
+            # if generation%25 == 0:
+            #     print(generation)
+            #     print(best_fitness)
             generation+=1
             self.create_new_population()
             fitnesses = [self.fitness(c) for c in self.population.get_population()]
@@ -93,9 +75,11 @@ class GeneticAlgorithm:
         print(f"Final Generation: {generation}")
         print(f"Best Fitness: {best_fitness:.4f}")
         
-        filename=f"data/fasta/ex-mu{ str(Fraction(self.mu).limit_denominator()).replace('/', 'div')}-K{self.K}-N{self.N}-generation{generation}.fasta"
-        self.population.generate_fasta(filename)
-        self.visualize_png(filename, "title","output_image.png")
-        print(self.population.min_hamming_distances())
-        print(self.population.get_population())
+        filename=f"ex-{self.experiment_name}-mu{ str(Fraction(self.mu).limit_denominator()).replace('/', 'div')}-K{self.K}-N{self.N}.{self.experiment_id}"
+        self.population.generate_fasta("data/fasta/"+filename+".fasta")
+        visualize_png("data/fasta/"+filename+".fasta", "title","figures/logo/"+filename+".png")
+        dist_to_csv(Counter(self.population.min_hamming_distances()), "data/csv/"+filename+".csv")
+        
+        self.experiment_id+=1
+        
         return fitness_tracker, [self.fitness(c) for c in self.population.get_population()]
