@@ -2,6 +2,7 @@ import random
 import numpy as np
 from weblogo import *
 from Population import *
+from fractions import Fraction
 
 def generate_random_string(alphabet, length):
     return ''.join(random.choice(alphabet) for _ in range(length))
@@ -92,7 +93,7 @@ class GeneticAlgorithm:
         print(f"Final Generation: {generation}")
         print(f"Best Fitness: {best_fitness:.4f}")
         
-        filename=f"data/fasta/ex-mu{self.mu}-K{self.K}-N{self.N}-generation{generation}.fasta"
+        filename=f"data/fasta/ex-mu{ str(Fraction(self.mu).limit_denominator()).replace('/', 'div')}-K{self.K}-N{self.N}-generation{generation}.fasta"
         self.population.generate_fasta(filename)
         self.visualize_png(filename, "title","output_image.png")
         print(self.population.min_hamming_distances())
