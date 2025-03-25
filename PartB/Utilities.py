@@ -63,3 +63,9 @@ def visualize_png(inname, title, outname):
         
 def extend_fitness(array, max_iters):
     return array + [1 for x in range(max_iters-len(array))]
+
+def load_output(filename):
+    with open(f"{filename}.csv", "r", newline='') as f:
+        reader = csv.reader(f)
+        fitnesses = [list(map(float, row)) for row in reader]  # Convert values to float
+    return fitnesses

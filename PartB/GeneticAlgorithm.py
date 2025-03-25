@@ -63,36 +63,35 @@ class GeneticAlgorithm:
         fitness_tracker = []
         fitnesses = [self.fitness(c) for c in self.population.get_population()]
         best_fitness = max(fitnesses)
-        generation = 0
         
         filename=f"ex-{self.experiment_name}-mu{ str(Fraction(self.mu).limit_denominator()).replace('/', 'div')}-K{self.K}-N{self.N}/{self.experiment_id}"
         
         while best_fitness != 1:
-            if generation>= self.iters:
+            if self.generation>= self.iters:
                 break
         
-            if generation%10==0:
+            if self.generation%10==0:
                 if self.save_results:
                     dist_to_csv(Counter(self.population.min_hamming_distances()).items(), 
-                                f"data/csv/hamming/{filename}-gen{generation}.csv")
+                                f"data/csv/hamming/{filename}-gen{self.generation}.csv")
                     dist_to_csv(enumerate(self.population.positionwise_entropy()), 
-                                f"data/csv/entropy/{filename}-gen{generation}.csv")
+                                f"data/csv/entropy/{filename}-gen{self.generation}.csv")
 
-            generation+=1
+            self.generation+=1
             self.create_new_population()
             fitnesses = [self.fitness(c) for c in self.population.get_population()]
             best_fitness = max(fitnesses)
             fitness_tracker.append(best_fitness)
-        print(f"Final Generation: {generation}")
+        print(f"Final Generation: {self.generation}")
         print(f"Best Fitness: {best_fitness:.4f}")
         
         if self.save_results:
             self.population.generate_fasta("data/fasta/"+filename+".fasta")
             visualize_png("data/fasta/"+filename+".fasta", "title","figures/logo/"+filename+".png")
             dist_to_csv(Counter(self.population.min_hamming_distances()).items(), 
-                        f"data/csv/hamming/{filename}-gen{generation}.csv")
+                        f"data/csv/hamming/{filename}-gen{self.generation}.csv")
             dist_to_csv(enumerate(self.population.positionwise_entropy()), 
-                        f"data/csv/entropy/{filename}-gen{generation}.csv")
+                        f"data/csv/entropy/{filename}-gen{self.generation}.csv")
             
         self.experiment_id+=1
         
