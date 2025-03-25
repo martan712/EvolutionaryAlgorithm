@@ -60,3 +60,6 @@ def visualize_png(inname, title, outname):
     create_file_dir(outname)
     with open(outname, 'wb') as file:
         file.write(png)
+        
+def extend_fitness(array, max_iters):
+    return array + [1 for x in range(max_iters-len(array))]
