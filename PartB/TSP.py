@@ -2,13 +2,14 @@ import csv
 import math
 import functools
 import random
+import matplotlib.pyplot as plt
 from pprint import pprint
 from operator import itemgetter
 from time import perf_counter
 
 n_population = 50
 replacement_pairs = 10
-iterations = 50
+timeout = 3
 mutation_rate = 0.1 # change a route has (exactly) one mutations
 
 class City:
@@ -148,27 +149,47 @@ class Population:
         routes = [route for fitness, route in routes]
         print(f"{routes[0].fitness()}: {routes[0]}")
 
+    def get_score(self) -> float:
+        routes = [(route.fitness(), route) for route in self.routes]
+        routes.sort(key=itemgetter(0), reverse=True)
+        routes = [route for fitness, route in routes]
+        return routes[0].fitness()
+
 cords = [[i for i in cord if i] for cord in list(csv.reader(open('file-tsp.txt'), delimiter=" "))]
 cities = [City(float(cord[0]), float(cord[1]), i) for i, cord in enumerate(cords[:])]
 
+no_local_search_t = []
+no_local_search_score = []
+
 population = Population(cities, n_population)
 print("start:")
 population.print_best()
 t0 = perf_counter()
-for i in range(iterations):
+while perf_counter()-t0 < timeout:
     population.next_gen()
     population.mutate()
     population.print_best()
+    no_local_search_t.append(perf_counter()-t0)
+    no_local_search_score.append(population.get_score())
     print(f"total elapsed time: {perf_counter()-t0}")
 
 
+local_search_t = []
+local_search_score = []
 population = Population(cities, n_population)
 print("start:")
 population.print_best()
 t0 = perf_counter()
-for i in range(iterations):
+while perf_counter()-t0 < timeout:
     population.next_gen()
     population.mutate()
     population.local_search()
     population.print_best()
+    local_search_t.append(perf_counter()-t0)
+    local_search_score.append(population.get_score())
     print(f"total elapsed time: {perf_counter()-t0}")
+
+plt, ax = plt.subplots()
+ax.scatter(no_local_search_t, no_local_search_score)
+ax.scatter(local_search_t, local_search_score)
+plt.savefig('combined')
