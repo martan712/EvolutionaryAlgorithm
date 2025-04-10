@@ -3,14 +3,11 @@ import math
 import functools
 import random
 import matplotlib.pyplot as plt
-from pprint import pprint
 from operator import itemgetter
 from time import perf_counter
 
-n_population = 50
+n_population = 40
 replacement_pairs = 10
-timeout = 3
-mutation_rate = 0.1 # change a route has (exactly) one mutations
 
 class City:
     ID: int
@@ -49,22 +46,19 @@ class Route:
             end = start
             start = x
 
-        #print(self.cities, other.cities) 
         #print(start, end) 
 
         middle1 = self.cities[start:end]
         middle2 = other.cities[start:end]
-        #print(middle1) 
 
         sides1 = [city for city in other.cities if not city in middle1]
         sides2 = [city for city in self.cities if not city in middle2]
         
         child1 = middle1 + sides1
         child2 = middle2 + sides2
-        #print(child1) 
         child1 = child1[len(child1)-start:]+child1[:len(child1)-start]
         child2 = child2[len(child1)-start:]+child2[:len(child1)-start]
-        #print(child1) 
+        
         return (Route(child1), Route(child2))
 
     def mutate(self):
@@ -87,10 +81,10 @@ class Route:
             j-=1
  
 
-    def local_ascend(self):
-        #print(f"before: {self.fitness()} {self}")
+    def local_ascend(self, max_depth: float):
         found_optimum = True
-        while found_optimum:
+        while found_optimum and max_depth > 0:
+            max_depth -= 1
             found_optimum = False
             for j in range(len(self.cities)-1):
                 for i in range(j):
@@ -98,8 +92,6 @@ class Route:
                     if lengthDelta < 0:
                         self.swap_edges(i, j)
                         foundImprovement = True
-                        #print(f"\tmid({lengthDelta}, {i}, {j}): {self.fitness()} {self}")
-        #print(f"after: {self.fitness()} {self}")
          
     def __str__(self):
         return "->".join(map(lambda city: str(city.ID), self.cities))
@@ -107,21 +99,19 @@ class Route:
 
 
 class Population:
-    routes: [Route] = []
+    routes: [Route]
 
     def __init__(self, cities: [City], N: int):
+        self.routes = [] #AAAAAAAA https://stackoverflow.com/questions/3887079/why-does-initializing-a-variable-via-a-python-default-variable-keep-state-across
         cities = cities.copy()
         for i in range(N):
             random.shuffle(cities)
-            #print(cities)
             self.routes.append(Route(cities.copy()))
-        #print(self.routes)
 
 
     def next_gen(self):
         routes = [(route.fitness(), route) for route in self.routes]
         routes.sort(key=itemgetter(0), reverse=True)
-        #print(routes)
         routes = [route for fitness, route in routes[:len(routes)-replacement_pairs*2]]
         lucky_ones = random.sample(routes, replacement_pairs*2)
 
@@ -133,11 +123,11 @@ class Population:
 
         self.routes = routes
    
-    def local_search(self):
+    def local_search(self, max_depth: float):
         for route in self.routes:
-            route.local_ascend()
+            route.local_ascend(max_depth)
 
-    def mutate(self):
+    def mutate(self, mutation_rate: float):
         for route in self.routes:
             if random.uniform(0, 1) < mutation_rate:
                 route.mutate()
@@ -145,7 +135,6 @@ class Population:
     def print_best(self):
         routes = [(route.fitness(), route) for route in self.routes]
         routes.sort(key=itemgetter(0), reverse=True)
-        #print(routes)
         routes = [route for fitness, route in routes]
         print(f"{routes[0].fitness()}: {routes[0]}")
 
@@ -155,41 +144,44 @@ class Population:
         routes = [route for fitness, route in routes]
         return routes[0].fitness()
 
+def run(population: Population, timeout: float, mutation_rate: float, max_depth: float):
+    t = []
+    score = []
+    print("start:")
+    population.print_best()
+    t0 = perf_counter()
+    while perf_counter()-t0 < timeout:
+        population.next_gen()
+        population.mutate(mutation_rate)
+        population.local_search(max_depth)
+        population.print_best()
+        t.append(perf_counter()-t0)
+        score.append(population.get_score())
+        print(f"total elapsed time: {perf_counter()-t0}")
+    return t, score
+
+# file-tsp
 cords = [[i for i in cord if i] for cord in list(csv.reader(open('file-tsp.txt'), delimiter=" "))]
-cities = [City(float(cord[0]), float(cord[1]), i) for i, cord in enumerate(cords[:])]
+cities = [City(float(cord[0]), float(cord[1]), i) for i, cord in enumerate(cords)]
 
-no_local_search_t = []
-no_local_search_score = []
+splt, ax = plt.subplots()
+for max_depth in [0, 1, 5, math.inf]:
+    population = Population(cities, n_population)
+    t, score = run(population, 3, 0.1, max_depth)
+    ax.scatter(t, score)
+    ax.scatter(t, score, label=f'max_depth={max_depth}')
+ax.legend()
+splt.savefig('file-tsp')
 
-population = Population(cities, n_population)
-print("start:")
-population.print_best()
-t0 = perf_counter()
-while perf_counter()-t0 < timeout:
-    population.next_gen()
-    population.mutate()
-    population.print_best()
-    no_local_search_t.append(perf_counter()-t0)
-    no_local_search_score.append(population.get_score())
-    print(f"total elapsed time: {perf_counter()-t0}")
+#d1655
+cords = [cord[1:] for cord in list(csv.reader(open('d1655.tsp'), delimiter=" "))]
+cities = [City(float(cord[0]), float(cord[1]), i) for i, cord in enumerate(cords)]
+splt, ax = plt.subplots()
+for max_depth in [0, 1, 5, math.inf]:
+    population = Population(cities, n_population)
+    t, score = run(population, 400, 0.01, max_depth)
+    ax.scatter(t, score, label=f'max_depth={max_depth}')
+ax.legend()
+splt.savefig('d1655')
 
 
-local_search_t = []
-local_search_score = []
-population = Population(cities, n_population)
-print("start:")
-population.print_best()
-t0 = perf_counter()
-while perf_counter()-t0 < timeout:
-    population.next_gen()
-    population.mutate()
-    population.local_search()
-    population.print_best()
-    local_search_t.append(perf_counter()-t0)
-    local_search_score.append(population.get_score())
-    print(f"total elapsed time: {perf_counter()-t0}")
-
-plt, ax = plt.subplots()
-ax.scatter(no_local_search_t, no_local_search_score)
-ax.scatter(local_search_t, local_search_score)
-plt.savefig('combined')
