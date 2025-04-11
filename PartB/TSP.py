@@ -170,18 +170,23 @@ for max_depth in [0, 1, 5, math.inf]:
     t, score = run(population, 3, 0.1, max_depth)
     ax.scatter(t, score)
     ax.scatter(t, score, label=f'max_depth={max_depth}')
+ax.set_xlabel("Time (s)")
+ax.set_ylabel("Fitness")
 ax.legend()
-splt.savefig('file-tsp')
+splt.savefig('figures/file-tsp')
 
 #d1655
 cords = [cord[1:] for cord in list(csv.reader(open('d1655.tsp'), delimiter=" "))]
 cities = [City(float(cord[0]), float(cord[1]), i) for i, cord in enumerate(cords)]
+
 splt, ax = plt.subplots()
 for max_depth in [0, 1, 5, math.inf]:
     population = Population(cities, n_population)
     t, score = run(population, 400, 0.01, max_depth)
     ax.scatter(t, score, label=f'max_depth={max_depth}')
+ax.set_xlabel("Time (s)")
+ax.set_ylabel("Fitness")
 ax.legend()
-splt.savefig('d1655')
+splt.savefig('figures/d1655')
 
 
