@@ -5,10 +5,9 @@ import random
 import matplotlib.pyplot as plt
 from operator import itemgetter
 from time import perf_counter
+from concurrent.futures import ProcessPoolExecutor
+from contextlib import redirect_stdout
 
-n_population = 40
-replacement_pairs = 10
-K = 2
 class City:
     ID: int
     x: float
@@ -32,22 +31,23 @@ class Route:
     def __init__(self, cities: [City]):
         self.cities = cities
 
+    def distance(self):
+        return functools.reduce(lambda s, next: (next, s[1]+s[0].dist(next)), self.cities[1:], (cities[0], 0))[1]
+    
     def fitness(self):
-        return 1/functools.reduce(lambda s, next: (next, s[1]+s[0].dist(next)), self.cities[1:], (cities[0], 0))[1]
+        return 1/self.distance()
 
     def crossover(self, other):
-        # Instead we could also sample from 0...len(cities-1), but alas
         start = random.randint(0, len(self.cities))
         end = start
+        
         while end == start:
             end = random.randint(0, len(self.cities))
         if start > end:
             x = end
             end = start
             start = x
-
-        #print(start, end) 
-
+            
         middle1 = self.cities[start:end]
         middle2 = other.cities[start:end]
 
@@ -79,7 +79,6 @@ class Route:
             self.cities[j] = tmp
             i+=1
             j-=1
- 
 
     def local_ascend(self, max_depth: float):
         found_optimum = True
@@ -88,7 +87,10 @@ class Route:
             found_optimum = False
             for j in range(len(self.cities)-1):
                 for i in range(j):
-                    lengthDelta: float = self.cities[i].dist(self.cities[j]) + self.cities[i+1].dist(self.cities[(j + 1) % len(self.cities)]) - self.cities[i].dist(self.cities[(i + 1) % len(self.cities)]) - self.cities[j].dist(self.cities[(j + 1) % len(self.cities)]);
+                    lengthDelta: float = self.cities[i].dist(self.cities[j])\
+                        + self.cities[i+1].dist(self.cities[(j + 1) % len(self.cities)])\
+                            - self.cities[i].dist(self.cities[(i + 1) % len(self.cities)])\
+                                - self.cities[j].dist(self.cities[(j + 1) % len(self.cities)]);
                     if lengthDelta < 0:
                         self.swap_edges(i, j)
                         foundImprovement = True
@@ -107,20 +109,6 @@ class Population:
         for i in range(N):
             random.shuffle(cities)
             self.routes.append(Route(cities.copy()))
-
-    def next_gen(self):
-        routes = [(route.fitness(), route) for route in self.routes]
-        routes.sort(key=itemgetter(0), reverse=True)
-        routes = [route for fitness, route in routes[:len(routes)-replacement_pairs*2]]
-        lucky_ones = random.sample(routes, replacement_pairs*2)
-
-        pairs = zip(lucky_ones[:replacement_pairs], lucky_ones[replacement_pairs:])
-        for pair in pairs:
-            children = pair[0].crossover(pair[1])
-            routes.append(children[0])
-            routes.append(children[1])
-        print(len(routes))
-        self.routes = routes
    
     def tournament_selection(self):
         selected = random.sample(self.routes, K)
@@ -145,11 +133,53 @@ class Population:
             if random.uniform(0, 1) < mutation_rate:
                 route.mutate()
 
+    def plot_route(self, title="TSPLecture Route", filename=""):
+        routes = [(route.fitness(), route) for route in self.routes]
+        routes.sort(key=itemgetter(0), reverse=True)
+        best_fit, best =routes[0]
+        dist = best.distance()
+        best = best.cities + [ best.cities[0] ]
+        x = [city.x for city in best]
+        y = [city.y for city in best]
+
+        plt.figure(figsize=(10, 8), facecolor='white')
+
+        # Plot the route path
+        plt.plot(x, y, 'b-', linewidth=1.5, alpha=0.8)
+
+        # Plot the cities
+        plt.plot(x, y, 'o', markersize=8, 
+                markerfacecolor='red', markeredgecolor='black', markeredgewidth=0.5)
+
+        # Annotate cities
+        for i, city in enumerate(best):
+            plt.text(city.x, city.y, str(city.ID), 
+                    fontsize=9, ha='center', va='center', 
+                    bbox=dict(facecolor='white', alpha=0.7, 
+                            edgecolor='none', pad=2))
+
+        # Remove axes and spines
+        plt.gca().set_facecolor('white')
+
+        # Add title with improved formatting
+        plt.title(f"TSP Solution - Total Distance: {dist:.2f}", 
+                fontsize=12, pad=20)
+
+        # Equal aspect ratio to prevent distortion
+        plt.gca().set_aspect('equal', adjustable='datalim')
+
+        # Tight layout to prevent clipping
+        plt.tight_layout()
+
+        plt.savefig(filename, dpi=300, bbox_inches='tight', facecolor='white')
+        plt.close()
+
+
     def print_best(self):
         routes = [(route.fitness(), route) for route in self.routes]
         routes.sort(key=itemgetter(0), reverse=True)
         routes = [route for fitness, route in routes]
-        print(f"{routes[0].fitness()}: {routes[0]}")
+        print(f"{routes[0].distance()}: {routes[0]}")
 
     def get_score(self) -> float:
         routes = [(route.fitness(), route) for route in self.routes]
@@ -160,46 +190,53 @@ class Population:
 def run(population: Population, timeout: float, mutation_rate: float, max_depth: float):
     t = []
     score = []
-    print("start:")
     population.print_best()
     t0 = perf_counter()
     while perf_counter()-t0 < timeout:
         population.create_new_population()
         population.mutate(mutation_rate)
         population.local_search(max_depth)
-        population.print_best()
+        
         t.append(perf_counter()-t0)
         score.append(population.get_score())
         print(f"total elapsed time: {perf_counter()-t0}")
+    population.print_best()
+    population.plot_route(filename=f"tsp_localdepth={max_depth}")
     return t, score
 
-# file-tsp
-cords = [[i for i in cord if i] for cord in list(csv.reader(open('file-tsp.txt'), delimiter=" "))]
-cities = [City(float(cord[0]), float(cord[1]), i) for i, cord in enumerate(cords)]
+if __name__ == "__main__":
+    
+    n_population = 200
+    K = 5
+    mu = 0.1
+    # file-tsp
+    cords = [[i for i in cord if i] for cord in list(csv.reader(open('file-tsp.txt'), delimiter=" "))]
+    cities = [City(float(cord[0]), float(cord[1]), i) for i, cord in enumerate(cords)]
 
-splt, ax = plt.subplots()
-for max_depth in [0, 1, 5, math.inf]:
-    population = Population(cities, n_population)
-    t, score = run(population, 3, 1/n_population, max_depth)
-    ax.scatter(t, score)
-    ax.scatter(t, score, label=f'max_depth={max_depth}')
-ax.set_xlabel("Time (s)")
-ax.set_ylabel("Fitness")
-ax.legend()
-splt.savefig('figures/file-tsp')
+    splt, ax = plt.subplots()
+    for max_depth in [0, 1, 5, math.inf]:
+        population = Population(cities, n_population)
+        t, score = run(population, 3, 0.1, max_depth)
+        ax.scatter(t, score)
+        ax.scatter(t, score, label=f'max_depth={max_depth}')
+    ax.set_xlabel("Time (s)")
+    ax.set_ylabel("Fitness")
+    ax.legend()
+    splt.savefig('figures/file-tsp')
 
-# #d1655
-# cords = [cord[1:] for cord in list(csv.reader(open('d1655.tsp'), delimiter=" "))]
-# cities = [City(float(cord[0]), float(cord[1]), i) for i, cord in enumerate(cords)]
 
-# splt, ax = plt.subplots()
-# for max_depth in [0, 1, 5, math.inf]:
-#     population = Population(cities, n_population)
-#     t, score = run(population, 400, 0.01, max_depth)
-#     ax.scatter(t, score, label=f'max_depth={max_depth}')
-# ax.set_xlabel("Time (s)")
-# ax.set_ylabel("Fitness")
-# ax.legend()
-# splt.savefig('figures/d1655')
+    # #att48.tsp
+    # cords = [cord[1:] for cord in list(csv.reader(open('att48.tsp'), delimiter=" "))]
+    # cities = [City(float(cord[0]), float(cord[1]), i) for i, cord in enumerate(cords)]
+
+    # splt, ax = plt.subplots()
+    # for max_depth in [0, 1, 5, math.inf]:
+    #     population = Population(cities, n_population)
+    #     t, score = run(population, 400, 0.01, max_depth)
+    #     ax.scatter(t, score, label=f'max_depth={max_depth}')
+    # ax.set_xlabel("Time (s)")
+    # ax.set_ylabel("Fitness")
+    # ax.legend()
+    # splt.savefig('figures/d1655')
 
 
